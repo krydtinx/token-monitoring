@@ -48,6 +48,40 @@ export interface ModelStats {
   cost_pct: number;
 }
 
+export interface DailySession {
+  date: string;
+  opencode: number;
+  hermes: number;
+  claudeCode: number;
+}
+
+export interface ToolUsage {
+  tool: string;
+  count: number;
+}
+
+export interface HourlyUsage {
+  hour: number;
+  count: number;
+}
+
+export interface LatencyPoint {
+  date: string;
+  avgMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  count: number;
+}
+
+export interface TopSession {
+  source: Source;
+  title: string;
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+  messageCount: number;
+}
+
 export interface DashboardData {
   totalCost: number;
   totalTokens: number;
@@ -57,6 +91,11 @@ export interface DashboardData {
   dailyUsage: DailyUsage[];
   sourceCosts: Record<Source, number>;
   sourceTokens: Record<Source, number>;
+  dailySessions: DailySession[];
+  toolUsage: ToolUsage[];
+  hourlyUsage: HourlyUsage[];
+  latency: LatencyPoint[];
+  topSessions: TopSession[];
 }
 
 export interface OpenCodeMessage {

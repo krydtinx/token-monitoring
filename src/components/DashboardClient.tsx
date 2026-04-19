@@ -5,6 +5,11 @@ import StatCard from "@/components/StatCard";
 import ModelTable from "@/components/ModelTable";
 import CostChart from "@/components/CostChart";
 import TokenChart from "@/components/TokenChart";
+import SessionChart from "@/components/SessionChart";
+import ToolChart from "@/components/ToolChart";
+import HourlyChart from "@/components/HourlyChart";
+import LatencyChart from "@/components/LatencyChart";
+import TopSessionsTable from "@/components/TopSessionsTable";
 import type { DashboardData, DailyUsage, Source } from "@/lib/types";
 
 function fmtNum(n: number): string {
@@ -287,6 +292,67 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                 </div>
               );
             })}
+
+            {/* Sessions Over Time */}
+            {data.dailySessions.some((d) => d.opencode + d.hermes + d.claudeCode > 0) && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                  SESSIONS OVER TIME
+                </h2>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
+                  <SessionChart dailySessions={data.dailySessions} />
+                </div>
+              </div>
+            )}
+
+            {/* Tool Usage */}
+            {data.toolUsage.length > 0 && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                  TOOL USAGE
+                  <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(Hermes)</span>
+                </h2>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
+                  <ToolChart toolUsage={data.toolUsage} />
+                </div>
+              </div>
+            )}
+
+            {/* Hourly Activity */}
+            {data.hourlyUsage.some((h) => h.count > 0) && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                  HOURLY ACTIVITY
+                  <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(Claude Code)</span>
+                </h2>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
+                  <HourlyChart hourlyUsage={data.hourlyUsage} />
+                </div>
+              </div>
+            )}
+
+            {/* Latency */}
+            {data.latency.length > 0 && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                  RESPONSE LATENCY
+                  <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(OpenCode)</span>
+                </h2>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
+                  <LatencyChart latency={data.latency} />
+                </div>
+              </div>
+            )}
+
+            {/* Top Sessions */}
+            {data.topSessions.length > 0 && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                  TOP SESSIONS BY COST
+                </h2>
+                <TopSessionsTable topSessions={data.topSessions} />
+              </div>
+            )}
           </>
         )}
       </main>

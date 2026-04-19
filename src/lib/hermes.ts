@@ -4,7 +4,7 @@ import fs from "fs";
 import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
-import type { UsageRecord } from "./types";
+import type { UsageRecord, ToolUsage, TopSession } from "./types";
 
 const HERMES_DB_PATH = path.join(os.homedir(), ".hermes", "state.db");
 
@@ -64,6 +64,92 @@ export function fetchHermesUsage(): UsageRecord[] {
     }
 
     return Array.from(aggregated.values());
+  } finally {
+    db.close();
+  }
+}
+
+export function fetchHermesDailySessions(): { date: string; count: number }[] {
+  if (!fs.existsSync(HERMES_DB_PATH)) return [];
+  const db = new Database(HERMES_DB_PATH, { readonly: true });
+  try {
+    const rows = db
+      .prepare(
+        `SELECT date(started_at, 'unixepoch') as d, COUNT(*) as c FROM sessions GROUP BY d ORDER BY d`,
+      )
+      .all() as Array<{ d: string; c: number }>;
+    return rows.map((r) => ({ date: r.d, count: r.c }));
+  } finally {
+    db.close();
+  }
+}
+
+export function fetchHermesToolUsage(): ToolUsage[] {
+  if (!fs.existsSync(HERMES_DB_PATH)) return [];
+  const db = new Database(HERMES_DB_PATH, { readonly: true });
+  try {
+    const rows = db
+      .prepare(
+        `SELECT tool_calls FROM messages WHERE tool_calls IS NOT NULL AND tool_calls != ''`,
+      )
+      .all() as Array<{ tool_calls: string }>;
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      try {
+        const calls = JSON.parse(row.tool_calls);
+        if (Array.isArray(calls)) {
+          for (const call of calls) {
+            const name = call?.function?.name;
+            if (name) counts.set(name, (counts.get(name) || 0) + 1);
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return Array.from(counts.entries())
+      .map(([tool, count]) => ({ tool, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  } finally {
+    db.close();
+  }
+}
+
+export function fetchHermesTopSessions(): TopSession[] {
+  if (!fs.existsSync(HERMES_DB_PATH)) return [];
+  const db = new Database(HERMES_DB_PATH, { readonly: true });
+  try {
+    const rows = db
+      .prepare(
+        `SELECT COALESCE(title, id) as title,
+                COALESCE(estimated_cost_usd, 0) as cost,
+                COALESCE(input_tokens, 0) as input_tokens,
+                COALESCE(output_tokens, 0) as output_tokens,
+                COALESCE(message_count, 0) as message_count
+         FROM sessions
+         WHERE estimated_cost_usd > 0 OR input_tokens > 0
+         ORDER BY estimated_cost_usd DESC
+         LIMIT 5`,
+      )
+      .all() as Array<{
+      title: string;
+      cost: number;
+      input_tokens: number;
+      output_tokens: number;
+      message_count: number;
+    }>;
+
+    return rows.map((r) => ({
+      source: "hermes" as const,
+      title: r.title || "Untitled",
+      cost: r.cost,
+      inputTokens: r.input_tokens,
+      outputTokens: r.output_tokens,
+      messageCount: r.message_count,
+    }));
   } finally {
     db.close();
   }
