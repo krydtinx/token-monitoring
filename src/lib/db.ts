@@ -23,6 +23,7 @@ function initDb(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,
       model TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'opencode',
       requests INTEGER DEFAULT 0,
       input_tokens INTEGER DEFAULT 0,
       output_tokens INTEGER DEFAULT 0,
@@ -30,23 +31,48 @@ function initDb(): void {
       cache_write_tokens INTEGER DEFAULT 0,
       reasoning_tokens INTEGER DEFAULT 0,
       cost REAL DEFAULT 0,
-      UNIQUE(date, model)
+      UNIQUE(date, model, source)
     );
   `);
 
+  // Migration: add source column if missing (old schema had UNIQUE(date, model))
   const columns = getDb()
     .prepare("PRAGMA table_info(usage_records)")
     .all() as Array<{ name: string }>;
   const colNames = new Set(columns.map((c) => c.name));
 
-  if (!colNames.has("cache_read_tokens")) {
-    getDb().exec("ALTER TABLE usage_records ADD COLUMN cache_read_tokens INTEGER DEFAULT 0");
+  if (!colNames.has("source")) {
+    getDb().exec("ALTER TABLE usage_records ADD COLUMN source TEXT NOT NULL DEFAULT 'opencode'");
   }
-  if (!colNames.has("cache_write_tokens")) {
-    getDb().exec("ALTER TABLE usage_records ADD COLUMN cache_write_tokens INTEGER DEFAULT 0");
-  }
-  if (!colNames.has("reasoning_tokens")) {
-    getDb().exec("ALTER TABLE usage_records ADD COLUMN reasoning_tokens INTEGER DEFAULT 0");
+
+  // Check if old UNIQUE(date, model) constraint exists and migrate
+  const indexes = getDb()
+    .prepare("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='usage_records'")
+    .all() as Array<{ sql: string | null }>;
+  const hasOldUnique = indexes.some(
+    (i) => i.sql && i.sql.includes("UNIQUE") && i.sql.includes("date, model") && !i.sql.includes("source"),
+  );
+
+  if (hasOldUnique) {
+    getDb().exec(`
+      CREATE TABLE usage_records_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        model TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'opencode',
+        requests INTEGER DEFAULT 0,
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        cache_read_tokens INTEGER DEFAULT 0,
+        cache_write_tokens INTEGER DEFAULT 0,
+        reasoning_tokens INTEGER DEFAULT 0,
+        cost REAL DEFAULT 0,
+        UNIQUE(date, model, source)
+      );
+      INSERT INTO usage_records_new SELECT * FROM usage_records;
+      DROP TABLE usage_records;
+      ALTER TABLE usage_records_new RENAME TO usage_records;
+    `);
   }
 }
 
@@ -56,9 +82,9 @@ export { getDb, initDb };
 
 export function upsertUsage(records: UsageRecord[]): void {
   const stmt = getDb().prepare(`
-    INSERT INTO usage_records (date, model, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost)
-    VALUES (@date, @model, @requests, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens, @reasoning_tokens, @cost)
-    ON CONFLICT(date, model) DO UPDATE SET
+    INSERT INTO usage_records (date, model, source, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost)
+    VALUES (@date, @model, @source, @requests, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens, @reasoning_tokens, @cost)
+    ON CONFLICT(date, model, source) DO UPDATE SET
       requests = requests + excluded.requests,
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
@@ -81,8 +107,8 @@ export function replaceUsage(records: UsageRecord[]): void {
   const insertMany = getDb().transaction((recs: UsageRecord[]) => {
     getDb().prepare("DELETE FROM usage_records").run();
     const stmt = getDb().prepare(`
-      INSERT INTO usage_records (date, model, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost)
-      VALUES (@date, @model, @requests, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens, @reasoning_tokens, @cost)
+      INSERT INTO usage_records (date, model, source, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost)
+      VALUES (@date, @model, @source, @requests, @input_tokens, @output_tokens, @cache_read_tokens, @cache_write_tokens, @reasoning_tokens, @cost)
     `);
     for (const rec of recs) {
       stmt.run(rec);
@@ -101,7 +127,7 @@ export function getAllUsage(): UsageRecord[] {
 export function getDailyUsage(): DailyUsage[] {
   const rows = getDb()
     .prepare(
-      "SELECT date, model, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost FROM usage_records ORDER BY date ASC",
+      "SELECT date, model, source, requests, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, cost FROM usage_records ORDER BY date ASC",
     )
     .all() as UsageRecord[];
 
@@ -121,7 +147,9 @@ export function getDailyUsage(): DailyUsage[] {
     day.total_cost += row.cost;
     day.total_tokens += row.input_tokens + row.output_tokens;
     day.total_requests += row.requests;
-    day.models[row.model] = {
+    const modelKey = `${row.source}|${row.model}`;
+    day.models[modelKey] = {
+      source: row.source,
       cost: row.cost,
       input_tokens: row.input_tokens,
       output_tokens: row.output_tokens,
@@ -138,16 +166,17 @@ export function getDailyUsage(): DailyUsage[] {
 export function getModelStats(): ModelStats[] {
   const rows = getDb()
     .prepare(
-      `SELECT model, SUM(requests) as requests, SUM(input_tokens) as input_tokens,
+      `SELECT model, source, SUM(requests) as requests, SUM(input_tokens) as input_tokens,
               SUM(output_tokens) as output_tokens,
               SUM(COALESCE(cache_read_tokens, 0)) as cache_read_tokens,
               SUM(COALESCE(cache_write_tokens, 0)) as cache_write_tokens,
               SUM(COALESCE(reasoning_tokens, 0)) as reasoning_tokens,
               SUM(cost) as cost
-       FROM usage_records GROUP BY model ORDER BY cost DESC`,
+       FROM usage_records GROUP BY model, source ORDER BY cost DESC`,
     )
     .all() as Array<{
     model: string;
+    source: "opencode" | "hermes";
     requests: number;
     input_tokens: number;
     output_tokens: number;
@@ -161,6 +190,7 @@ export function getModelStats(): ModelStats[] {
 
   return rows.map((r) => ({
     model: r.model,
+    source: r.source,
     requests: r.requests,
     input_tokens: r.input_tokens,
     output_tokens: r.output_tokens,

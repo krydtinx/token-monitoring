@@ -16,7 +16,16 @@ interface CostChartProps {
   dailyUsage: DailyUsage[];
 }
 
-const PALETTE = ["#6366f1", "#8b5cf6", "#d946ef", "#f43f5e", "#f59e0b"];
+const PALETTE = [
+  "#3b82f6", // blue
+  "#22c55e", // green
+  "#f97316", // orange
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#ef4444", // red
+  "#eab308", // yellow
+  "#06b6d4", // cyan
+];
 
 function buildChartData(dailyUsage: DailyUsage[]) {
   const allModels = new Set<string>();

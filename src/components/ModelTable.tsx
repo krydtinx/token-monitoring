@@ -24,6 +24,7 @@ function fmtCost(n: number): string {
 }
 
 const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "source", label: "Source" },
   { key: "model", label: "Model" },
   { key: "requests", label: "Requests" },
   { key: "input_tokens", label: "Input" },
@@ -103,7 +104,7 @@ export default function ModelTable({ stats }: ModelTableProps) {
           <tbody>
             {sorted.map((row) => (
               <tr
-                key={row.model}
+                key={`${row.source}|${row.model}`}
                 style={{ transition: "background 0.1s" }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLTableRowElement).style.background = "var(--surface-2)";
@@ -112,6 +113,22 @@ export default function ModelTable({ stats }: ModelTableProps) {
                   (e.currentTarget as HTMLTableRowElement).style.background = "";
                 }}
               >
+                <td style={tdStyle}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "0.15rem 0.5rem",
+                      borderRadius: "0.25rem",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      background: row.source === "opencode" ? "rgba(99,102,241,0.15)" : "rgba(34,197,94,0.15)",
+                      color: row.source === "opencode" ? "#818cf8" : "#4ade80",
+                    }}
+                  >
+                    {row.source}
+                  </span>
+                </td>
                 <td style={{ ...tdStyle, fontFamily: "sans-serif", maxWidth: "260px" }}>
                   <span title={row.model}>{truncateMiddle(row.model)}</span>
                 </td>

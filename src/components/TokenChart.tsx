@@ -100,10 +100,10 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
         />
         <Tooltip content={<CustomTooltip />} />
         <Legend wrapperStyle={{ fontSize: "0.75rem", color: "var(--text-muted)" }} />
-        <Line type="monotone" dataKey="Input Tokens" stroke="#6366f1" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="Output Tokens" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 3" dot={false} />
-        <Line type="monotone" dataKey="Cache Read" stroke="#d946ef" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="Reasoning" stroke="#f59e0b" strokeWidth={2} strokeDasharray="3 3" dot={false} />
+        <Line type="monotone" dataKey="Input Tokens" stroke="#3b82f6" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="Output Tokens" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+        <Line type="monotone" dataKey="Cache Read" stroke="#f97316" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="Reasoning" stroke="#ec4899" strokeWidth={2} strokeDasharray="3 3" dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );

@@ -1,7 +1,10 @@
+export type Source = "opencode" | "hermes";
+
 export interface UsageRecord {
   id?: number;
   date: string;
   model: string;
+  source: Source;
   requests: number;
   input_tokens: number;
   output_tokens: number;
@@ -19,6 +22,7 @@ export interface DailyUsage {
   models: Record<
     string,
     {
+      source: Source;
       cost: number;
       input_tokens: number;
       output_tokens: number;
@@ -32,6 +36,7 @@ export interface DailyUsage {
 
 export interface ModelStats {
   model: string;
+  source: Source;
   requests: number;
   input_tokens: number;
   output_tokens: number;
@@ -50,6 +55,8 @@ export interface DashboardData {
   activeModels: number;
   modelStats: ModelStats[];
   dailyUsage: DailyUsage[];
+  sourceCosts: Record<Source, number>;
+  sourceTokens: Record<Source, number>;
 }
 
 export interface OpenCodeMessage {

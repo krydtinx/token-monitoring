@@ -39,6 +39,7 @@ export function fetchUsage(): UsageRecord[] {
         aggregated.set(key, {
           date,
           model,
+          source: "opencode",
           requests: 1,
           input_tokens: msg.tokens.input || 0,
           output_tokens: msg.tokens.output || 0,

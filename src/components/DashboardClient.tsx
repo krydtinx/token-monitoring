@@ -5,7 +5,7 @@ import StatCard from "@/components/StatCard";
 import ModelTable from "@/components/ModelTable";
 import CostChart from "@/components/CostChart";
 import TokenChart from "@/components/TokenChart";
-import type { DashboardData } from "@/lib/types";
+import type { DashboardData, DailyUsage, Source } from "@/lib/types";
 
 function fmtNum(n: number): string {
   return n.toLocaleString();
@@ -13,6 +13,32 @@ function fmtNum(n: number): string {
 
 function fmtCost(n: number): string {
   return "$" + n.toFixed(4);
+}
+
+const SOURCES: Source[] = ["opencode", "hermes"];
+const SOURCE_LABELS: Record<Source, string> = {
+  opencode: "Opencode",
+  hermes: "Hermes",
+};
+const SOURCE_COLORS: Record<Source, string> = {
+  opencode: "#818cf8",
+  hermes: "#4ade80",
+};
+
+function filterDailyBySource(dailyUsage: DailyUsage[], source: Source): DailyUsage[] {
+  return dailyUsage
+    .map((day) => {
+      const models: DailyUsage["models"] = {};
+      for (const [key, val] of Object.entries(day.models)) {
+        if (val.source === source) {
+          // Strip source prefix from key for chart display
+          const model = key.includes("|") ? key.slice(key.indexOf("|") + 1) : key;
+          models[model] = val;
+        }
+      }
+      return { ...day, models };
+    })
+    .filter((day) => Object.keys(day.models).length > 0);
 }
 
 export default function DashboardClient({ initialData }: { initialData: DashboardData }) {
@@ -65,9 +91,9 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             <p style={{ color: "var(--text-muted)", fontSize: "1.1rem", marginBottom: "1rem" }}>
               No usage data yet
             </p>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
-              Click Refresh to sync data from your local opencode database.
-            </p>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
+                Click Refresh to sync data from opencode and hermes databases.
+              </p>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -97,8 +123,16 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                 marginBottom: "1.5rem",
               }}
             >
-              <StatCard label="Total Cost" value={fmtCost(data.totalCost)} subValue="all time" />
-              <StatCard label="Total Tokens" value={fmtNum(data.totalTokens)} subValue="input + output" />
+              <StatCard
+                label="Total Cost"
+                value={fmtCost(data.totalCost)}
+                subValue={`opencode: ${fmtCost(data.sourceCosts?.opencode ?? 0)} / hermes: ${fmtCost(data.sourceCosts?.hermes ?? 0)}`}
+              />
+              <StatCard
+                label="Total Tokens"
+                value={fmtNum(data.totalTokens)}
+                subValue={`opencode: ${fmtNum(data.sourceTokens?.opencode ?? 0)} / hermes: ${fmtNum(data.sourceTokens?.hermes ?? 0)}`}
+              />
               <StatCard label="Total Requests" value={fmtNum(data.totalRequests)} />
               <StatCard label="Active Models" value={data.activeModels} />
             </div>
@@ -156,55 +190,96 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
               <ModelTable stats={data.modelStats} />
             </div>
 
-            {/* Charts */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                gap: "1rem",
-              }}
-            >
-              <div
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "0.75rem",
-                  padding: "1rem",
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    marginBottom: "0.75rem",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  COST OVER TIME
-                </h2>
-                <CostChart dailyUsage={data.dailyUsage} />
-              </div>
-              <div
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "0.75rem",
-                  padding: "1rem",
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    marginBottom: "0.75rem",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  TOKENS OVER TIME
-                </h2>
-                <TokenChart dailyUsage={data.dailyUsage} />
-              </div>
-            </div>
+            {/* Charts — one section per source */}
+            {SOURCES.filter((s) => data.dailyUsage.some((d) => Object.values(d.models).some((m) => m.source === s))).map((source) => {
+              const filtered = filterDailyBySource(data.dailyUsage, source);
+              if (filtered.length === 0) return null;
+              return (
+                <div key={source} style={{ marginBottom: "1.5rem" }}>
+                  <h2
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      marginBottom: "0.75rem",
+                      color: "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "0.25rem",
+                        fontSize: "0.7rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        background: `${SOURCE_COLORS[source]}22`,
+                        color: SOURCE_COLORS[source],
+                      }}
+                    >
+                      {SOURCE_LABELS[source]}
+                    </span>
+                    <span style={{ fontSize: "0.85rem" }}>
+                      {fmtCost(filtered.reduce((s, d) => s + d.total_cost, 0))} total
+                    </span>
+                  </h2>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                      gap: "1rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "0.75rem",
+                        padding: "1rem",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          marginBottom: "0.75rem",
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        Cost
+                      </h3>
+                      <CostChart dailyUsage={filtered} />
+                    </div>
+                    <div
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "0.75rem",
+                        padding: "1rem",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          marginBottom: "0.75rem",
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        Tokens
+                      </h3>
+                      <TokenChart dailyUsage={filtered} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </>
         )}
       </main>
