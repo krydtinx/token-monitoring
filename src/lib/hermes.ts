@@ -1,5 +1,6 @@
 import "server-only";
 
+import fs from "fs";
 import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
@@ -8,6 +9,10 @@ import type { UsageRecord } from "./types";
 const HERMES_DB_PATH = path.join(os.homedir(), ".hermes", "state.db");
 
 export function fetchHermesUsage(): UsageRecord[] {
+  if (!fs.existsSync(HERMES_DB_PATH)) {
+    return [];
+  }
+
   const db = new Database(HERMES_DB_PATH, { readonly: true });
   try {
     const rows = db

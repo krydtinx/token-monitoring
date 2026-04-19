@@ -29,14 +29,19 @@ function filterDailyBySource(dailyUsage: DailyUsage[], source: Source): DailyUsa
   return dailyUsage
     .map((day) => {
       const models: DailyUsage["models"] = {};
+      let total_cost = 0;
+      let total_tokens = 0;
+      let total_requests = 0;
       for (const [key, val] of Object.entries(day.models)) {
         if (val.source === source) {
-          // Strip source prefix from key for chart display
           const model = key.includes("|") ? key.slice(key.indexOf("|") + 1) : key;
           models[model] = val;
+          total_cost += val.cost;
+          total_tokens += val.input_tokens + val.output_tokens;
+          total_requests += val.requests;
         }
       }
-      return { ...day, models };
+      return { date: day.date, total_cost, total_tokens, total_requests, models };
     })
     .filter((day) => Object.keys(day.models).length > 0);
 }
