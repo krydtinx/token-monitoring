@@ -52,13 +52,10 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
     return (
       <div
         style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "0.75rem",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          height: "260px",
+          height: "220px",
           color: "var(--text-muted)",
           fontSize: "0.9rem",
         }}
@@ -75,17 +72,6 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
   }));
 
   return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "0.75rem",
-        padding: "1rem",
-      }}
-    >
-      <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" }}>
-        Token Usage
-      </div>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -116,6 +102,5 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
           />
         </LineChart>
       </ResponsiveContainer>
-    </div>
   );
 }
