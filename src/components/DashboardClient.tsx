@@ -15,14 +15,16 @@ function fmtCost(n: number): string {
   return "$" + n.toFixed(4);
 }
 
-const SOURCES: Source[] = ["opencode", "hermes"];
+const SOURCES: Source[] = ["opencode", "hermes", "claude-code"];
 const SOURCE_LABELS: Record<Source, string> = {
   opencode: "Opencode",
   hermes: "Hermes",
+  "claude-code": "Claude Code",
 };
 const SOURCE_COLORS: Record<Source, string> = {
   opencode: "#818cf8",
   hermes: "#4ade80",
+  "claude-code": "#f472b6",
 };
 
 function filterDailyBySource(dailyUsage: DailyUsage[], source: Source): DailyUsage[] {
@@ -97,7 +99,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
               No usage data yet
             </p>
               <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
-                Click Refresh to sync data from opencode and hermes databases.
+                Click Refresh to sync data from opencode, hermes, and claude-code.
               </p>
             <button
               onClick={handleRefresh}
@@ -131,12 +133,12 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
               <StatCard
                 label="Total Cost"
                 value={fmtCost(data.totalCost)}
-                subValue={`opencode: ${fmtCost(data.sourceCosts?.opencode ?? 0)} / hermes: ${fmtCost(data.sourceCosts?.hermes ?? 0)}`}
+                subValue={`opencode: ${fmtCost(data.sourceCosts?.opencode ?? 0)} / hermes: ${fmtCost(data.sourceCosts?.hermes ?? 0)} / claude-code: ${fmtCost(data.sourceCosts?.["claude-code"] ?? 0)}`}
               />
               <StatCard
                 label="Total Tokens"
                 value={fmtNum(data.totalTokens)}
-                subValue={`opencode: ${fmtNum(data.sourceTokens?.opencode ?? 0)} / hermes: ${fmtNum(data.sourceTokens?.hermes ?? 0)}`}
+                subValue={`opencode: ${fmtNum(data.sourceTokens?.opencode ?? 0)} / hermes: ${fmtNum(data.sourceTokens?.hermes ?? 0)} / claude-code: ${fmtNum(data.sourceTokens?.["claude-code"] ?? 0)}`}
               />
               <StatCard label="Total Requests" value={fmtNum(data.totalRequests)} />
               <StatCard label="Active Models" value={data.activeModels} />

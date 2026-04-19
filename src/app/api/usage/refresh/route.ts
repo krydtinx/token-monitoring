@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { replaceUsage } from "@/lib/db";
 import { fetchUsage } from "@/lib/opencode";
 import { fetchHermesUsage } from "@/lib/hermes";
+import { fetchClaudeCodeUsage } from "@/lib/claude-code";
 
 export async function POST() {
   try {
     const opencodeRecords = fetchUsage();
     const hermesRecords = fetchHermesUsage();
-    const allRecords = [...opencodeRecords, ...hermesRecords];
+    const claudeCodeRecords = fetchClaudeCodeUsage();
+    const allRecords = [...opencodeRecords, ...hermesRecords, ...claudeCodeRecords];
 
     if (allRecords.length > 0) {
       replaceUsage(allRecords);
@@ -17,6 +19,7 @@ export async function POST() {
       success: true,
       opencodeCount: opencodeRecords.length,
       hermesCount: hermesRecords.length,
+      claudeCodeCount: claudeCodeRecords.length,
       totalCount: allRecords.length,
     });
   } catch (err) {

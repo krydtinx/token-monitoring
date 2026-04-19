@@ -122,8 +122,8 @@ export default function ModelTable({ stats }: ModelTableProps) {
                       fontSize: "0.7rem",
                       fontWeight: 600,
                       textTransform: "uppercase",
-                      background: row.source === "opencode" ? "rgba(99,102,241,0.15)" : "rgba(34,197,94,0.15)",
-                      color: row.source === "opencode" ? "#818cf8" : "#4ade80",
+                      background: row.source === "opencode" ? "rgba(99,102,241,0.15)" : row.source === "hermes" ? "rgba(34,197,94,0.15)" : "rgba(244,114,182,0.15)",
+                      color: row.source === "opencode" ? "#818cf8" : row.source === "hermes" ? "#4ade80" : "#f472b6",
                     }}
                   >
                     {row.source}

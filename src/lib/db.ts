@@ -2,7 +2,7 @@ import "server-only";
 
 import Database from "better-sqlite3";
 import path from "path";
-import type { UsageRecord, DailyUsage, ModelStats } from "./types";
+import type { UsageRecord, DailyUsage, ModelStats, Source } from "./types";
 
 const DB_PATH = path.join(process.cwd(), "token-usage.db");
 
@@ -176,7 +176,7 @@ export function getModelStats(): ModelStats[] {
     )
     .all() as Array<{
     model: string;
-    source: "opencode" | "hermes";
+    source: Source;
     requests: number;
     input_tokens: number;
     output_tokens: number;
