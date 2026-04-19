@@ -38,7 +38,15 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
       <div style={{ marginBottom: "0.4rem", color: "var(--text-muted)" }}>{label}</div>
       {payload.map((entry) => (
         <div key={entry.name} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: entry.color, display: "inline-block" }} />
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: entry.color,
+              display: "inline-block",
+            }}
+          />
           <span style={{ color: "var(--text-muted)" }}>{entry.name}:</span>
           <span>{entry.value.toLocaleString()}</span>
         </div>
@@ -69,38 +77,34 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
     date: day.date,
     "Input Tokens": Object.values(day.models).reduce((s, m) => s + m.input_tokens, 0),
     "Output Tokens": Object.values(day.models).reduce((s, m) => s + m.output_tokens, 0),
+    "Cache Read": Object.values(day.models).reduce((s, m) => s + m.cache_read_tokens, 0),
+    "Reasoning": Object.values(day.models).reduce((s, m) => s + m.reasoning_tokens, 0),
   }));
 
   return (
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis
-            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
-            width={44}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend wrapperStyle={{ fontSize: "0.75rem", color: "var(--text-muted)" }} />
-          <Line
-            type="monotone"
-            dataKey="Input Tokens"
-            stroke="#6366f1"
-            strokeWidth={2}
-            dot={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="Output Tokens"
-            stroke="#8b5cf6"
-            strokeWidth={2}
-            strokeDasharray="5 3"
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+        <XAxis
+          dataKey="date"
+          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
+          width={44}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend wrapperStyle={{ fontSize: "0.75rem", color: "var(--text-muted)" }} />
+        <Line type="monotone" dataKey="Input Tokens" stroke="#6366f1" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="Output Tokens" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+        <Line type="monotone" dataKey="Cache Read" stroke="#d946ef" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="Reasoning" stroke="#f59e0b" strokeWidth={2} strokeDasharray="3 3" dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
   );
 }

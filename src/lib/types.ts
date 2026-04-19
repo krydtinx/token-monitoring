@@ -1,25 +1,14 @@
 export interface UsageRecord {
   id?: number;
-  date: string; // "2026-04-19"
-  model: string; // e.g. "openrouter/google/gemini-2.0-flash"
+  date: string;
+  model: string;
   requests: number;
   input_tokens: number;
   output_tokens: number;
-  cost: number; // USD
-}
-
-export interface ApiKey {
-  id?: number;
-  name: string; // e.g. "opencode-go"
-  key: string; // the actual API key
-  is_active: number; // 1 = active, 0 = inactive
-}
-
-export interface MaskedApiKey {
-  id: number;
-  name: string;
-  masked_key: string; // "sk_or_****xxxx"
-  is_active: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  reasoning_tokens: number;
+  cost: number;
 }
 
 export interface DailyUsage {
@@ -27,12 +16,18 @@ export interface DailyUsage {
   total_cost: number;
   total_tokens: number;
   total_requests: number;
-  models: Record<string, {
-    cost: number;
-    input_tokens: number;
-    output_tokens: number;
-    requests: number;
-  }>;
+  models: Record<
+    string,
+    {
+      cost: number;
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_tokens: number;
+      cache_write_tokens: number;
+      reasoning_tokens: number;
+      requests: number;
+    }
+  >;
 }
 
 export interface ModelStats {
@@ -41,6 +36,9 @@ export interface ModelStats {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  reasoning_tokens: number;
   cost: number;
   cost_pct: number;
 }
@@ -54,13 +52,24 @@ export interface DashboardData {
   dailyUsage: DailyUsage[];
 }
 
-export interface OpenRouterUsageResponse {
-  data: Array<{
-    route: string;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    cost: number;
-    requests: number;
-  }>;
+export interface OpenCodeMessage {
+  role: string;
+  modelID?: string;
+  providerID?: string;
+  cost?: number;
+  tokens?: {
+    total: number;
+    input: number;
+    output: number;
+    reasoning: number;
+    cache: {
+      write: number;
+      read: number;
+    };
+  };
+  time?: {
+    created?: number;
+    completed?: number;
+  };
+  finish?: string;
 }

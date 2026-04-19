@@ -4,7 +4,7 @@
 
 - **Name**: Token Usage Dashboard
 - **Type**: Local web dashboard (Next.js + TypeScript)
-- **Summary**: Track OpenRouter API token usage, costs, and per-model breakdowns stored in SQLite.
+- **Summary**: Track opencode-go token usage, costs, and per-model breakdowns by reading from the local opencode database.
 - **Target**: maq (personal use, localhost only)
 
 ---
@@ -13,56 +13,52 @@
 
 | Layer       | Choice                                    |
 |-------------|-------------------------------------------|
-| Framework   | Next.js 14 (App Router) + TypeScript      |
+| Framework   | Next.js 16 (App Router) + TypeScript      |
 | Database    | SQLite via `better-sqlite3`               |
 | Charts      | Recharts                                  |
 | Styling     | Tailwind CSS (dark theme)                |
-| API Client  | OpenRouter API (`/usage` endpoint)        |
+| Data Source | opencode-go local DB (`~/.local/share/opencode/opencode.db`) |
 | Fonts       | Geist (Next.js default)                  |
 
 ---
 
 ## 3. Database Schema
 
+The dashboard maintains its own local SQLite database (`token-usage.db`) with aggregated data synced from opencode-go's database.
+
 ```sql
 CREATE TABLE IF NOT EXISTS usage_records (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   date        TEXT NOT NULL,           -- ISO date: "2026-04-19"
-  model       TEXT NOT NULL,           -- e.g. "openrouter/google/gemini-2.0-flash"
+  model       TEXT NOT NULL,           -- e.g. "minimax-m2.5-free", "glm-5.1"
   requests    INTEGER DEFAULT 0,
   input_tokens  INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
+  cache_read_tokens INTEGER DEFAULT 0,
+  cache_write_tokens INTEGER DEFAULT 0,
+  reasoning_tokens INTEGER DEFAULT 0,
   cost        REAL DEFAULT 0,           -- USD
   UNIQUE(date, model)
 );
-
-CREATE TABLE IF NOT EXISTS api_keys (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL,            -- e.g. "opencode-go"
-  key         TEXT NOT NULL,
-  is_active   INTEGER DEFAULT 1
-);
 ```
+
+The source data is read from opencode-go's `message` table where each assistant message contains a `data` JSON field with token usage, cost, and model information.
 
 ---
 
 ## 4. Features & UI
 
-### 4.1 API Key Management
-- Page at `/settings` to add/edit/delete OpenRouter API keys
-- Only one active key at a time
-- Keys stored in SQLite (api_keys table)
-
-### 4.2 Dashboard (Home `/`)
+### 4.1 Dashboard (Home `/`)
 - **Top stat cards**: Total Cost (all time), Total Tokens, Total Requests, Active Models
-- **Model Breakdown Table**: sortable table with columns — Model, Total Requests, Input Tokens, Output Tokens, Total Tokens, Total Cost, % of Total Cost
+- **Model Breakdown Table**: sortable table with columns — Model, Requests, Input, Output, Cache Read, Cache Write, Reasoning, Cost, % Cost
 - **Cost Over Time Chart**: Area chart (Recharts) — X: date, Y: cost, stacked/grouped by model
-- **Token Over Time Chart**: Line chart — X: date, Y: input/output tokens
-- **Refresh button**: fetches fresh data from OpenRouter `/usage` API and upserts into SQLite
+- **Token Over Time Chart**: Line chart — X: date, Y: input/output/cache read/reasoning tokens
+- **Refresh button**: reads fresh data from opencode-go's local database and replaces data in the dashboard DB
 
-### 4.3 Data Fetching Logic
-- OpenRouter `GET /v1/usage` with active API key
-- Data upserted into SQLite by (date, model) — if exists, update; if not, insert
+### 4.2 Data Fetching Logic
+- Reads from opencode-go's SQLite database at `~/.local/share/opencode/opencode.db`
+- Parses the `message` table, filtering for assistant messages with token data
+- Aggregates by (date, model) and upserts into the dashboard's own SQLite database
 - Manual refresh only (no auto-polling)
 
 ---
@@ -75,41 +71,37 @@ token-usage/
 │   ├── app/
 │   │   ├── layout.tsx          # Root layout, dark theme
 │   │   ├── page.tsx            # Dashboard home
-│   │   ├── settings/
-│   │   │   └── page.tsx        # API key management
-│   │   └── globals.css
+│   │   ├── api/
+│   │   │   ├── usage/
+│   │   │   │   ├── route.ts    # GET usage data
+│   │   │   │   └── refresh/
+│   │   │   │       └── route.ts # POST refresh from opencode DB
+│   │   │   └── globals.css
 │   ├── components/
 │   │   ├── StatCard.tsx
 │   │   ├── ModelTable.tsx
 │   │   ├── CostChart.tsx
 │   │   ├── TokenChart.tsx
-│   │   └── ApiKeyForm.tsx
+│   │   └── DashboardClient.tsx
 │   ├── lib/
-│   │   ├── db.ts               # SQLite setup & queries
-│   │   ├── openrouter.ts       # OpenRouter API client
+│   │   ├── db.ts               # SQLite setup & queries (dashboard DB)
+│   │   ├── opencode.ts         # Reads from opencode-go's local DB
 │   │   └── types.ts            # TypeScript types
-│   └── scripts/
-│       └── seed.ts             # Optional seed script
-├── public/
+├── token-usage.db              # Dashboard's local database
 ├── package.json
 ├── next.config.ts
-├── tailwind.config.ts
 ├── tsconfig.json
-├── SPEC.md
-└── README.md
+└── SPEC.md
 ```
 
 ---
 
 ## 6. API Endpoints (Next.js Route Handlers)
 
-| Method | Path                    | Description                          |
-|--------|-------------------------|--------------------------------------|
-| GET    | `/api/usage`            | Return all usage records from SQLite |
-| POST   | `/api/usage/refresh`    | Fetch from OpenRouter, upsert to DB  |
-| GET    | `/api/keys`             | List all API keys (masked)           |
-| POST   | `/api/keys`             | Add new API key                      |
-| DELETE | `/api/keys/[id]`        | Delete API key                       |
+| Method | Path                    | Description                                      |
+|--------|-------------------------|--------------------------------------------------|
+| GET    | `/api/usage`            | Return aggregated usage records from dashboard DB |
+| POST   | `/api/usage/refresh`    | Read from opencode DB, replace data in dashboard DB |
 
 ---
 
@@ -121,7 +113,7 @@ token-usage/
 - **Primary accent**: `#6366f1` (indigo-500)
 - **Text primary**: `#f5f5f5`
 - **Text muted**: `#a1a1a1`
-- **Chart palette**: indigo, violet, fuchsia, rose, amber轮流
+- **Chart palette**: indigo, violet, fuchsia, rose, amber
 
 ---
 

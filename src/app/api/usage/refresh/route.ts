@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
-import { getActiveApiKey, upsertUsage } from "@/lib/db";
-import { fetchUsage } from "@/lib/openrouter";
+import { replaceUsage } from "@/lib/db";
+import { fetchUsage } from "@/lib/opencode";
 
 export async function POST() {
   try {
-    const apiKey = getActiveApiKey();
-    if (!apiKey) {
-      return NextResponse.json({ error: "No active API key configured" }, { status: 400 });
-    }
-
-    const records = await fetchUsage(apiKey.key);
+    const records = fetchUsage();
     if (records.length > 0) {
-      upsertUsage(records);
+      replaceUsage(records);
     }
 
     return NextResponse.json({ success: true, recordsCount: records.length });

@@ -12,7 +12,7 @@ type SortKey = keyof ModelStats;
 function truncateMiddle(str: string, maxLen = 40): string {
   if (str.length <= maxLen) return str;
   const half = Math.floor((maxLen - 3) / 2);
-  return str.slice(0, half) + "…" + str.slice(str.length - half);
+  return str.slice(0, half) + "..." + str.slice(str.length - half);
 }
 
 function fmtNum(n: number): string {
@@ -26,9 +26,11 @@ function fmtCost(n: number): string {
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "model", label: "Model" },
   { key: "requests", label: "Requests" },
-  { key: "input_tokens", label: "Input Tokens" },
-  { key: "output_tokens", label: "Output Tokens" },
-  { key: "total_tokens", label: "Total Tokens" },
+  { key: "input_tokens", label: "Input" },
+  { key: "output_tokens", label: "Output" },
+  { key: "cache_read_tokens", label: "Cache Read" },
+  { key: "cache_write_tokens", label: "Cache Write" },
+  { key: "reasoning_tokens", label: "Reasoning" },
   { key: "cost", label: "Cost" },
   { key: "cost_pct", label: "% Cost" },
 ];
@@ -91,11 +93,7 @@ export default function ModelTable({ stats }: ModelTableProps) {
           <thead>
             <tr style={{ background: "var(--surface-2)" }}>
               {COLUMNS.map(({ key, label }) => (
-                <th
-                  key={key}
-                  style={thStyle}
-                  onClick={() => handleSort(key)}
-                >
+                <th key={key} style={thStyle} onClick={() => handleSort(key)}>
                   {label}
                   {sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                 </th>
@@ -120,7 +118,9 @@ export default function ModelTable({ stats }: ModelTableProps) {
                 <td style={tdStyle}>{fmtNum(row.requests)}</td>
                 <td style={tdStyle}>{fmtNum(row.input_tokens)}</td>
                 <td style={tdStyle}>{fmtNum(row.output_tokens)}</td>
-                <td style={tdStyle}>{fmtNum(row.total_tokens)}</td>
+                <td style={tdStyle}>{fmtNum(row.cache_read_tokens)}</td>
+                <td style={tdStyle}>{fmtNum(row.cache_write_tokens)}</td>
+                <td style={tdStyle}>{fmtNum(row.reasoning_tokens)}</td>
                 <td style={tdStyle}>{fmtCost(row.cost)}</td>
                 <td style={{ ...tdStyle, minWidth: "120px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

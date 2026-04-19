@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Token Usage Dashboard",
-  description: "Track OpenRouter API token usage and costs",
+  description: "Track opencode-go token usage and costs",
 };
 
 export default function RootLayout({
