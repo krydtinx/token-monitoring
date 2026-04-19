@@ -1,5 +1,6 @@
 import "server-only";
 
+import fs from "fs";
 import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
@@ -8,6 +9,10 @@ import type { OpenCodeMessage, UsageRecord } from "./types";
 const OPENCODE_DB_PATH = path.join(os.homedir(), ".local/share/opencode/opencode.db");
 
 export function fetchUsage(): UsageRecord[] {
+  if (!fs.existsSync(OPENCODE_DB_PATH)) {
+    return [];
+  }
+
   const db = new Database(OPENCODE_DB_PATH, { readonly: true });
   try {
     const rows = db
