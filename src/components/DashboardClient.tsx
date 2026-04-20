@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import StatCard from "@/components/StatCard";
 import ModelTable from "@/components/ModelTable";
 import CostChart from "@/components/CostChart";
@@ -10,7 +10,8 @@ import ToolChart from "@/components/ToolChart";
 import HourlyChart from "@/components/HourlyChart";
 import LatencyChart from "@/components/LatencyChart";
 import TopSessionsTable from "@/components/TopSessionsTable";
-import type { DashboardData, DailyUsage, Source } from "@/lib/types";
+import DateFilter, { type FilterType } from "@/components/DateFilter";
+import type { DashboardData, DailyUsage, ModelStats, Source } from "@/lib/types";
 
 function fmtNum(n: number): string {
   return n.toLocaleString();
@@ -18,6 +19,73 @@ function fmtNum(n: number): string {
 
 function fmtCost(n: number): string {
   return "$" + n.toFixed(4);
+}
+
+function getToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getWeekStart(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function getMonthStart(): string {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+function getDateRange(filterType: FilterType, customFrom: string, customTo: string): { from: string; to: string } | null {
+  switch (filterType) {
+    case "today":
+      return { from: getToday(), to: getToday() };
+    case "week":
+      return { from: getWeekStart(), to: getToday() };
+    case "month":
+      return { from: getMonthStart(), to: getToday() };
+    case "custom":
+      if (customFrom && customTo && customFrom <= customTo) {
+        return { from: customFrom, to: customTo };
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function rebuildModelStats(dailyUsage: DailyUsage[]): ModelStats[] {
+  const map = new Map<string, { source: Source; model: string; requests: number; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number; reasoning_tokens: number; cost: number }>();
+
+  for (const day of dailyUsage) {
+    for (const [key, val] of Object.entries(day.models)) {
+      const model = key.includes("|") ? key.slice(key.indexOf("|") + 1) : key;
+      const compositeKey = `${val.source}|${model}`;
+      if (!map.has(compositeKey)) {
+        map.set(compositeKey, { source: val.source, model, requests: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, reasoning_tokens: 0, cost: 0 });
+      }
+      const entry = map.get(compositeKey)!;
+      entry.requests += val.requests;
+      entry.input_tokens += val.input_tokens;
+      entry.output_tokens += val.output_tokens;
+      entry.cache_read_tokens += val.cache_read_tokens ?? 0;
+      entry.cache_write_tokens += val.cache_write_tokens ?? 0;
+      entry.reasoning_tokens += val.reasoning_tokens ?? 0;
+      entry.cost += val.cost;
+    }
+  }
+
+  const totalCost = Array.from(map.values()).reduce((sum, e) => sum + e.cost, 0);
+
+  return Array.from(map.values())
+    .map((e) => ({
+      ...e,
+      total_tokens: e.input_tokens + e.output_tokens,
+      cost_pct: totalCost > 0 ? (e.cost / totalCost) * 100 : 0,
+    }))
+    .sort((a, b) => b.cost - a.cost);
 }
 
 const SOURCES: Source[] = ["opencode", "hermes", "claude-code"];
@@ -57,6 +125,72 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
   const [data, setData] = useState<DashboardData>(initialData);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>("none");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const dateRange = getDateRange(filterType, customFrom, customTo);
+  const hasValidationError = filterType === "custom" && customFrom && customTo && customFrom > customTo;
+
+  const {
+    filteredDailyUsage,
+    filteredDailySessions,
+    filteredLatency,
+    filteredModelStats,
+    filteredTotalCost,
+    filteredTotalTokens,
+    filteredTotalRequests,
+    filteredActiveModels,
+    filteredSourceCosts,
+    filteredSourceTokens,
+  } = useMemo(() => {
+    if (!dateRange || hasValidationError) {
+      return {
+        filteredDailyUsage: data.dailyUsage,
+        filteredDailySessions: data.dailySessions,
+        filteredLatency: data.latency,
+        filteredModelStats: data.modelStats,
+        filteredTotalCost: data.totalCost,
+        filteredTotalTokens: data.totalTokens,
+        filteredTotalRequests: data.totalRequests,
+        filteredActiveModels: data.activeModels,
+        filteredSourceCosts: data.sourceCosts,
+        filteredSourceTokens: data.sourceTokens,
+      };
+    }
+
+    const { from, to } = dateRange;
+
+    const dailyUsage = data.dailyUsage.filter((d) => d.date >= from && d.date <= to);
+    const dailySessions = data.dailySessions.filter((d) => d.date >= from && d.date <= to);
+    const latency = data.latency.filter((d) => d.date >= from && d.date <= to);
+    const modelStats = rebuildModelStats(dailyUsage);
+
+    const totalCost = modelStats.reduce((sum, m) => sum + m.cost, 0);
+    const totalTokens = modelStats.reduce((sum, m) => sum + m.total_tokens, 0);
+    const totalRequests = modelStats.reduce((sum, m) => sum + m.requests, 0);
+    const activeModels = modelStats.length;
+
+    const sourceCosts: Record<Source, number> = { opencode: 0, hermes: 0, "claude-code": 0 };
+    const sourceTokens: Record<Source, number> = { opencode: 0, hermes: 0, "claude-code": 0 };
+    for (const m of modelStats) {
+      sourceCosts[m.source] += m.cost;
+      sourceTokens[m.source] += m.total_tokens;
+    }
+
+    return {
+      filteredDailyUsage: dailyUsage,
+      filteredDailySessions: dailySessions,
+      filteredLatency: latency,
+      filteredModelStats: modelStats,
+      filteredTotalCost: totalCost,
+      filteredTotalTokens: totalTokens,
+      filteredTotalRequests: totalRequests,
+      filteredActiveModels: activeModels,
+      filteredSourceCosts: sourceCosts,
+      filteredSourceTokens: sourceTokens,
+    };
+  }, [data, dateRange, hasValidationError]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -126,6 +260,16 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
           </div>
         ) : (
           <>
+            {/* Date Filter */}
+            <DateFilter
+              filterType={filterType}
+              customFrom={customFrom}
+              customTo={customTo}
+              onFilterChange={setFilterType}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+            />
+
             {/* Stat Cards */}
             <div
               style={{
@@ -137,16 +281,16 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             >
               <StatCard
                 label="Total Cost"
-                value={fmtCost(data.totalCost)}
-                subValue={`opencode: ${fmtCost(data.sourceCosts?.opencode ?? 0)} / hermes: ${fmtCost(data.sourceCosts?.hermes ?? 0)} / claude-code: ${fmtCost(data.sourceCosts?.["claude-code"] ?? 0)}`}
+                value={fmtCost(filteredTotalCost)}
+                subValue={`opencode: ${fmtCost(filteredSourceCosts?.opencode ?? 0)} / hermes: ${fmtCost(filteredSourceCosts?.hermes ?? 0)} / claude-code: ${fmtCost(filteredSourceCosts?.["claude-code"] ?? 0)}`}
               />
               <StatCard
                 label="Total Tokens"
-                value={fmtNum(data.totalTokens)}
-                subValue={`opencode: ${fmtNum(data.sourceTokens?.opencode ?? 0)} / hermes: ${fmtNum(data.sourceTokens?.hermes ?? 0)} / claude-code: ${fmtNum(data.sourceTokens?.["claude-code"] ?? 0)}`}
+                value={fmtNum(filteredTotalTokens)}
+                subValue={`opencode: ${fmtNum(filteredSourceTokens?.opencode ?? 0)} / hermes: ${fmtNum(filteredSourceTokens?.hermes ?? 0)} / claude-code: ${fmtNum(filteredSourceTokens?.["claude-code"] ?? 0)}`}
               />
-              <StatCard label="Total Requests" value={fmtNum(data.totalRequests)} />
-              <StatCard label="Active Models" value={data.activeModels} />
+              <StatCard label="Total Requests" value={fmtNum(filteredTotalRequests)} />
+              <StatCard label="Active Models" value={filteredActiveModels} />
             </div>
 
             {/* Refresh */}
@@ -199,12 +343,15 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
               >
                 BY MODEL
               </h2>
-              <ModelTable stats={data.modelStats} />
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                Aggregated usage per model across all sources
+              </p>
+              <ModelTable stats={filteredModelStats} />
             </div>
 
             {/* Charts — one section per source */}
-            {SOURCES.filter((s) => data.dailyUsage.some((d) => Object.values(d.models).some((m) => m.source === s))).map((source) => {
-              const filtered = filterDailyBySource(data.dailyUsage, source);
+            {SOURCES.filter((s) => filteredDailyUsage.some((d) => Object.values(d.models).some((m) => m.source === s))).map((source) => {
+              const filtered = filterDailyBySource(filteredDailyUsage, source);
               if (filtered.length === 0) return null;
               return (
                 <div key={source} style={{ marginBottom: "1.5rem" }}>
@@ -237,6 +384,9 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                       {fmtCost(filtered.reduce((s, d) => s + d.total_cost, 0))} total
                     </span>
                   </h2>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                    Daily cost and token breakdown for {SOURCE_LABELS[source]} models
+                  </p>
                   <div
                     style={{
                       display: "grid",
@@ -256,7 +406,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                         style={{
                           fontSize: "0.75rem",
                           fontWeight: 600,
-                          marginBottom: "0.75rem",
+                          marginBottom: "0.25rem",
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
                           letterSpacing: "0.05em",
@@ -264,6 +414,9 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                       >
                         Cost
                       </h3>
+                      <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: "0.75rem" }}>
+                        Daily cost ($) per model over time
+                      </p>
                       <CostChart dailyUsage={filtered} />
                     </div>
                     <div
@@ -278,7 +431,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                         style={{
                           fontSize: "0.75rem",
                           fontWeight: 600,
-                          marginBottom: "0.75rem",
+                          marginBottom: "0.25rem",
                           color: "var(--text-muted)",
                           textTransform: "uppercase",
                           letterSpacing: "0.05em",
@@ -286,6 +439,9 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                       >
                         Tokens
                       </h3>
+                      <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: "0.75rem" }}>
+                        Daily token usage (input, output, cache, reasoning)
+                      </p>
                       <TokenChart dailyUsage={filtered} />
                     </div>
                   </div>
@@ -294,13 +450,16 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             })}
 
             {/* Sessions Over Time */}
-            {data.dailySessions.some((d) => d.opencode + d.hermes + d.claudeCode > 0) && (
+            {filteredDailySessions.some((d) => d.opencode + d.hermes + d.claudeCode > 0) && (
               <div style={{ marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--text-muted)" }}>
                   SESSIONS OVER TIME
                 </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                  Number of sessions per day by source
+                </p>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
-                  <SessionChart dailySessions={data.dailySessions} />
+                  <SessionChart dailySessions={filteredDailySessions} />
                 </div>
               </div>
             )}
@@ -308,10 +467,13 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             {/* Tool Usage */}
             {data.toolUsage.length > 0 && (
               <div style={{ marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--text-muted)" }}>
                   TOOL USAGE
                   <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(Hermes)</span>
                 </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                  Top 10 most used tools by invocation count
+                </p>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
                   <ToolChart toolUsage={data.toolUsage} />
                 </div>
@@ -321,10 +483,13 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             {/* Hourly Activity */}
             {data.hourlyUsage.some((h) => h.count > 0) && (
               <div style={{ marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--text-muted)" }}>
                   HOURLY ACTIVITY
                   <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(Claude Code)</span>
                 </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                  Message distribution by hour of day
+                </p>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
                   <HourlyChart hourlyUsage={data.hourlyUsage} />
                 </div>
@@ -332,14 +497,17 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             )}
 
             {/* Latency */}
-            {data.latency.length > 0 && (
+            {filteredLatency.length > 0 && (
               <div style={{ marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--text-muted)" }}>
                   RESPONSE LATENCY
                   <span style={{ fontSize: "0.75rem", fontWeight: 400, marginLeft: "0.5rem", color: "var(--text-muted)" }}>(OpenCode)</span>
                 </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                  Average and P95 response time per day
+                </p>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.75rem", padding: "1rem" }}>
-                  <LatencyChart latency={data.latency} />
+                  <LatencyChart latency={filteredLatency} />
                 </div>
               </div>
             )}
@@ -347,9 +515,12 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             {/* Top Sessions */}
             {data.topSessions.length > 0 && (
               <div style={{ marginBottom: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-muted)" }}>
+                <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem", color: "var(--text-muted)" }}>
                   TOP SESSIONS BY COST
                 </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>
+                  Highest cost sessions across all sources
+                </p>
                 <TopSessionsTable topSessions={data.topSessions} />
               </div>
             )}

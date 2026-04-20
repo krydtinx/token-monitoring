@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getDailyUsage, getModelStats } from "@/lib/db";
 import { fetchOpenCodeDailySessions, fetchOpenCodeLatency, fetchOpenCodeTopSessions } from "@/lib/opencode";
 import { fetchHermesToolUsage, fetchHermesTopSessions, fetchHermesDailySessions } from "@/lib/hermes";
