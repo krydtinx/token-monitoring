@@ -113,7 +113,7 @@ export function fetchClaudeCodeUsage(): UsageRecord[] {
 
       if (entry.type !== "assistant" || !entry.message?.usage || !entry.timestamp) continue;
 
-      const date = entry.timestamp.slice(0, 10);
+      const date = new Date(entry.timestamp).toISOString().slice(0, 10);
       const model = entry.message.model || "unknown";
       const usage = entry.message.usage;
       const pricing = getPricing(model);
@@ -164,7 +164,7 @@ export function fetchClaudeCodeDailySessions(): { date: string; count: number }[
         continue;
       }
       if (!entry.timestamp || !entry.sessionId) continue;
-      const date = entry.timestamp.slice(0, 10);
+      const date = new Date(entry.timestamp).toISOString().slice(0, 10);
       if (!dateSessions.has(date)) dateSessions.set(date, new Set());
       dateSessions.get(date)!.add(entry.sessionId);
     }

@@ -102,6 +102,7 @@ export function fetchOpenCodeLatency(): LatencyPoint[] {
     return Array.from(byDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, latencies]) => {
+        if (latencies.length === 0) return { date, avgMs: 0, p50Ms: 0, p95Ms: 0, count: 0 };
         latencies.sort((a, b) => a - b);
         const avg = latencies.reduce((s, v) => s + v, 0) / latencies.length;
         const p50 = latencies[Math.floor(latencies.length * 0.5)];

@@ -26,6 +26,15 @@ function mergeDailySessions(
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function safe<T>(fn: () => T, fallback: T): T {
+  try {
+    return fn();
+  } catch (err) {
+    console.error(err);
+    return fallback;
+  }
+}
+
 export async function GET() {
   try {
     const modelStats = getModelStats();
@@ -42,18 +51,18 @@ export async function GET() {
       sourceTokens[m.source] += m.total_tokens;
     }
 
-    const ocSessions = fetchOpenCodeDailySessions();
-    const hermesDailySessions = fetchHermesDailySessions();
-    const ccSessions = fetchClaudeCodeDailySessions();
+    const ocSessions = safe(() => fetchOpenCodeDailySessions(), []);
+    const hermesDailySessions = safe(() => fetchHermesDailySessions(), []);
+    const ccSessions = safe(() => fetchClaudeCodeDailySessions(), []);
 
     const dailySessions = mergeDailySessions(ocSessions, hermesDailySessions, ccSessions);
-    const toolUsage = fetchHermesToolUsage();
-    const hourlyUsage = fetchClaudeCodeHourlyUsage();
-    const latency = fetchOpenCodeLatency();
+    const toolUsage = safe(() => fetchHermesToolUsage(), []);
+    const hourlyUsage = safe(() => fetchClaudeCodeHourlyUsage(), []);
+    const latency = safe(() => fetchOpenCodeLatency(), []);
     const topSessions = [
-      ...fetchOpenCodeTopSessions(),
-      ...fetchHermesTopSessions(),
-      ...fetchClaudeCodeTopSessions(),
+      ...safe(() => fetchOpenCodeTopSessions(), []),
+      ...safe(() => fetchHermesTopSessions(), []),
+      ...safe(() => fetchClaudeCodeTopSessions(), []),
     ].sort((a, b) => b.cost - a.cost).slice(0, 15);
 
     return NextResponse.json({
