@@ -8,6 +8,7 @@ import TokenChart from "@/components/TokenChart";
 import SessionChart from "@/components/SessionChart";
 import ToolChart from "@/components/ToolChart";
 import HourlyChart from "@/components/HourlyChart";
+import { getToday, getWeekStart, getMonthStart } from "@/lib/timezone";
 import LatencyChart from "@/components/LatencyChart";
 import TopSessionsTable from "@/components/TopSessionsTable";
 import DateFilter, { type FilterType } from "@/components/DateFilter";
@@ -19,23 +20,6 @@ function fmtNum(n: number): string {
 
 function fmtCost(n: number): string {
   return "$" + n.toFixed(4);
-}
-
-function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getWeekStart(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-function getMonthStart(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 }
 
 function getDateRange(filterType: FilterType, customFrom: string, customTo: string): { from: string; to: string } | null {
@@ -212,6 +196,23 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
     }
   }
 
+  async function handlePricingRefresh() {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/pricing/refresh", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error || "Pricing refresh failed");
+      }
+      setError(null);
+      alert("Pricing updated successfully!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Pricing refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", color: "var(--text-primary)" }}>
       {/* Nav */}
@@ -294,7 +295,24 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
             </div>
 
             {/* Refresh */}
-            <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+              <button
+                onClick={handlePricingRefresh}
+                disabled={refreshing}
+                style={{
+                  background: "transparent",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "0.5rem",
+                  padding: "0.5rem 1rem",
+                  cursor: refreshing ? "not-allowed" : "pointer",
+                  fontSize: "0.8rem",
+                  fontWeight: 500,
+                  opacity: refreshing ? 0.7 : 1,
+                }}
+              >
+                {refreshing ? "Updating..." : "↻ Update Pricing"}
+              </button>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}

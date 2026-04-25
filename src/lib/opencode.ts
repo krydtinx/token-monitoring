@@ -5,10 +5,14 @@ import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
 import type { OpenCodeMessage, UsageRecord, LatencyPoint, TopSession } from "./types";
+import { toLocalDateString } from "./timezone";
+import { ensurePricingLoaded, calculateCost } from "./pricing";
 
 const OPENCODE_DB_PATH = path.join(os.homedir(), ".local/share/opencode/opencode.db");
 
 export function fetchUsage(): UsageRecord[] {
+  ensurePricingLoaded();
+
   if (!fs.existsSync(OPENCODE_DB_PATH)) {
     return [];
   }
@@ -27,8 +31,15 @@ export function fetchUsage(): UsageRecord[] {
       const msg: OpenCodeMessage = JSON.parse(row.data);
       if (!msg.tokens || !msg.time?.created) continue;
 
-      const date = new Date(msg.time.created).toISOString().split("T")[0];
+      const date = toLocalDateString(new Date(msg.time.created));
       const model = msg.modelID || "unknown";
+      const cost = calculateCost(
+        model,
+        msg.tokens.input || 0,
+        msg.tokens.output || 0,
+        msg.tokens.cache?.write || 0,
+        msg.tokens.cache?.read || 0,
+      );
       const key = `${date}|${model}`;
 
       const existing = aggregated.get(key);
@@ -39,7 +50,7 @@ export function fetchUsage(): UsageRecord[] {
         existing.cache_read_tokens += msg.tokens.cache?.read || 0;
         existing.cache_write_tokens += msg.tokens.cache?.write || 0;
         existing.reasoning_tokens += msg.tokens.reasoning || 0;
-        existing.cost += msg.cost || 0;
+        existing.cost += cost;
       } else {
         aggregated.set(key, {
           date,
@@ -51,7 +62,7 @@ export function fetchUsage(): UsageRecord[] {
           cache_read_tokens: msg.tokens.cache?.read || 0,
           cache_write_tokens: msg.tokens.cache?.write || 0,
           reasoning_tokens: msg.tokens.reasoning || 0,
-          cost: msg.cost || 0,
+          cost,
         });
       }
     }
@@ -67,7 +78,7 @@ export function fetchOpenCodeDailySessions(): { date: string; count: number }[] 
   const db = new Database(OPENCODE_DB_PATH, { readonly: true });
   try {
     const rows = db
-      .prepare(`SELECT date(time_created / 1000, 'unixepoch') as d, COUNT(*) as c FROM session GROUP BY d ORDER BY d`)
+      .prepare(`SELECT date(time_created / 1000, 'unixepoch', '+7 hours') as d, COUNT(*) as c FROM session GROUP BY d ORDER BY d`)
       .all() as Array<{ d: string; c: number }>;
     return rows.map((r) => ({ date: r.d, count: r.c }));
   } finally {
@@ -94,7 +105,7 @@ export function fetchOpenCodeLatency(): LatencyPoint[] {
       if (!msg.time?.created || !msg.time?.completed) continue;
       const ms = msg.time.completed - msg.time.created;
       if (ms < 0) continue;
-      const date = new Date(msg.time.created).toISOString().split("T")[0];
+      const date = toLocalDateString(new Date(msg.time.created));
       if (!byDate.has(date)) byDate.set(date, []);
       byDate.get(date)!.push(ms);
     }

@@ -5,10 +5,14 @@ import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
 import type { UsageRecord, ToolUsage, TopSession } from "./types";
+import { toLocalDateString } from "./timezone";
+import { ensurePricingLoaded, calculateCost } from "./pricing";
 
 const HERMES_DB_PATH = path.join(os.homedir(), ".hermes", "state.db");
 
 export function fetchHermesUsage(): UsageRecord[] {
+  ensurePricingLoaded();
+
   if (!fs.existsSync(HERMES_DB_PATH)) {
     return [];
   }
@@ -34,8 +38,15 @@ export function fetchHermesUsage(): UsageRecord[] {
     const aggregated = new Map<string, UsageRecord>();
 
     for (const row of rows) {
-      const date = new Date(row.started_at * 1000).toISOString().split("T")[0];
+      const date = toLocalDateString(new Date(row.started_at * 1000));
       const model = row.model || "unknown";
+      const cost = calculateCost(
+        model,
+        row.input_tokens || 0,
+        row.output_tokens || 0,
+        row.cache_write_tokens || 0,
+        row.cache_read_tokens || 0,
+      );
       const key = `${date}|${model}`;
 
       const existing = aggregated.get(key);
@@ -46,7 +57,7 @@ export function fetchHermesUsage(): UsageRecord[] {
         existing.cache_read_tokens += row.cache_read_tokens || 0;
         existing.cache_write_tokens += row.cache_write_tokens || 0;
         existing.reasoning_tokens += row.reasoning_tokens || 0;
-        existing.cost += row.estimated_cost_usd || 0;
+        existing.cost += cost;
       } else {
         aggregated.set(key, {
           date,
@@ -58,7 +69,7 @@ export function fetchHermesUsage(): UsageRecord[] {
           cache_read_tokens: row.cache_read_tokens || 0,
           cache_write_tokens: row.cache_write_tokens || 0,
           reasoning_tokens: row.reasoning_tokens || 0,
-          cost: row.estimated_cost_usd || 0,
+          cost,
         });
       }
     }
@@ -75,7 +86,7 @@ export function fetchHermesDailySessions(): { date: string; count: number }[] {
   try {
     const rows = db
       .prepare(
-        `SELECT date(started_at, 'unixepoch') as d, COUNT(*) as c FROM sessions GROUP BY d ORDER BY d`,
+        `SELECT date(started_at, 'unixepoch', '+7 hours') as d, COUNT(*) as c FROM sessions GROUP BY d ORDER BY d`,
       )
       .all() as Array<{ d: string; c: number }>;
     return rows.map((r) => ({ date: r.d, count: r.c }));

@@ -33,6 +33,16 @@ function initDb(): void {
       cost REAL DEFAULT 0,
       UNIQUE(date, model, source)
     );
+
+    CREATE TABLE IF NOT EXISTS model_pricing (
+      model TEXT PRIMARY KEY,
+      input_cost_per_token REAL,
+      output_cost_per_token REAL,
+      cache_write_cost_per_token REAL,
+      cache_read_cost_per_token REAL,
+      created_date INTEGER,
+      updated_date INTEGER
+    );
   `);
 
   // Migration: add source column if missing (old schema had UNIQUE(date, model))

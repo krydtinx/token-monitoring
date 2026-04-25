@@ -1,5 +1,7 @@
 "use client";
 
+import { getToday, getWeekStart, getMonthStart } from "@/lib/timezone";
+
 export type FilterType = "none" | "today" | "week" | "month" | "custom";
 
 interface DateFilterProps {
@@ -9,23 +11,6 @@ interface DateFilterProps {
   onFilterChange: (filterType: FilterType) => void;
   onCustomFromChange: (date: string) => void;
   onCustomToChange: (date: string) => void;
-}
-
-function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getWeekStart(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-function getMonthStart(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 }
 
 function getDateRangeLabel(filterType: FilterType, customFrom: string, customTo: string): string {
