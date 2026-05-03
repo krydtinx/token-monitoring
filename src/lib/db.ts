@@ -3,6 +3,7 @@ import "server-only";
 import Database from "better-sqlite3";
 import path from "path";
 import type { UsageRecord, DailyUsage, ModelStats, Source } from "./types";
+import { getModelCosts } from "./pricing";
 
 const DB_PATH = path.join(process.cwd(), "token-usage.db");
 
@@ -33,17 +34,10 @@ function initDb(): void {
       cost REAL DEFAULT 0,
       UNIQUE(date, model, source)
     );
-
-    CREATE TABLE IF NOT EXISTS model_pricing (
-      model TEXT PRIMARY KEY,
-      input_cost_per_token REAL,
-      output_cost_per_token REAL,
-      cache_write_cost_per_token REAL,
-      cache_read_cost_per_token REAL,
-      created_date INTEGER,
-      updated_date INTEGER
-    );
   `);
+
+  // Migration: drop obsolete model_pricing table (replaced by hardcoded prices)
+  getDb().exec(`DROP TABLE IF EXISTS model_pricing`);
 
   // Migration: add source column if missing (old schema had UNIQUE(date, model))
   const columns = getDb()
@@ -210,5 +204,6 @@ export function getModelStats(): ModelStats[] {
     reasoning_tokens: r.reasoning_tokens,
     cost: r.cost,
     cost_pct: totalCost > 0 ? (r.cost / totalCost) * 100 : 0,
+    hasPricing: getModelCosts(r.model) !== null,
   }));
 }

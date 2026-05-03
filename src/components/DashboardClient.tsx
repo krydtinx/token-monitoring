@@ -13,6 +13,7 @@ import LatencyChart from "@/components/LatencyChart";
 import TopSessionsTable from "@/components/TopSessionsTable";
 import DateFilter, { type FilterType } from "@/components/DateFilter";
 import type { DashboardData, DailyUsage, ModelStats, Source } from "@/lib/types";
+import { getModelCosts } from "@/lib/pricing";
 
 function fmtNum(n: number): string {
   return n.toLocaleString();
@@ -68,6 +69,7 @@ function rebuildModelStats(dailyUsage: DailyUsage[]): ModelStats[] {
       ...e,
       total_tokens: e.input_tokens + e.output_tokens,
       cost_pct: totalCost > 0 ? (e.cost / totalCost) * 100 : 0,
+      hasPricing: getModelCosts(e.model) !== null,
     }))
     .sort((a, b) => b.cost - a.cost);
 }
@@ -196,23 +198,6 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
     }
   }
 
-  async function handlePricingRefresh() {
-    setRefreshing(true);
-    try {
-      const res = await fetch("/api/pricing/refresh", { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || "Pricing refresh failed");
-      }
-      setError(null);
-      alert("Pricing updated successfully!");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Pricing refresh failed");
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", color: "var(--text-primary)" }}>
       {/* Nav */}
@@ -296,23 +281,6 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
 
             {/* Refresh */}
             <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
-              <button
-                onClick={handlePricingRefresh}
-                disabled={refreshing}
-                style={{
-                  background: "transparent",
-                  color: "var(--text-muted)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "0.5rem",
-                  padding: "0.5rem 1rem",
-                  cursor: refreshing ? "not-allowed" : "pointer",
-                  fontSize: "0.8rem",
-                  fontWeight: 500,
-                  opacity: refreshing ? 0.7 : 1,
-                }}
-              >
-                {refreshing ? "Updating..." : "↻ Update Pricing"}
-              </button>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}

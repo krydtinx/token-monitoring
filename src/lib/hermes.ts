@@ -6,13 +6,11 @@ import path from "path";
 import os from "os";
 import type { UsageRecord, ToolUsage, TopSession } from "./types";
 import { toLocalDateString } from "./timezone";
-import { ensurePricingLoaded, calculateCost } from "./pricing";
+import { calculateCost } from "./pricing";
 
 const HERMES_DB_PATH = path.join(os.homedir(), ".hermes", "state.db");
 
 export function fetchHermesUsage(): UsageRecord[] {
-  ensurePricingLoaded();
-
   if (!fs.existsSync(HERMES_DB_PATH)) {
     return [];
   }

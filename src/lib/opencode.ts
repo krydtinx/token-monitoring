@@ -6,13 +6,11 @@ import path from "path";
 import os from "os";
 import type { OpenCodeMessage, UsageRecord, LatencyPoint, TopSession } from "./types";
 import { toLocalDateString } from "./timezone";
-import { ensurePricingLoaded, calculateCost } from "./pricing";
+import { calculateCost } from "./pricing";
 
 const OPENCODE_DB_PATH = path.join(os.homedir(), ".local/share/opencode/opencode.db");
 
 export function fetchUsage(): UsageRecord[] {
-  ensurePricingLoaded();
-
   if (!fs.existsSync(OPENCODE_DB_PATH)) {
     return [];
   }

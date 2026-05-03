@@ -138,7 +138,7 @@ export default function ModelTable({ stats }: ModelTableProps) {
                 <td style={tdStyle}>{fmtNum(row.cache_read_tokens)}</td>
                 <td style={tdStyle}>{fmtNum(row.cache_write_tokens)}</td>
                 <td style={tdStyle}>{fmtNum(row.reasoning_tokens)}</td>
-                <td style={tdStyle}>{fmtCost(row.cost)}</td>
+                <td style={tdStyle}>{row.hasPricing ? fmtCost(row.cost) : "N/A"}</td>
                 <td style={{ ...tdStyle, minWidth: "120px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <div

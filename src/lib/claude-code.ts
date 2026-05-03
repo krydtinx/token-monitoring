@@ -5,7 +5,7 @@ import path from "path";
 import os from "os";
 import type { UsageRecord, HourlyUsage, TopSession } from "./types";
 import { toLocalDateString } from "./timezone";
-import { ensurePricingLoaded, calculateCost } from "./pricing";
+import { calculateCost } from "./pricing";
 
 const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
 
@@ -26,8 +26,6 @@ function findJsonlFiles(dir: string): string[] {
 }
 
 export function fetchClaudeCodeUsage(): UsageRecord[] {
-  ensurePricingLoaded();
-
   if (!fs.existsSync(CLAUDE_PROJECTS_DIR)) {
     return [];
   }
@@ -167,8 +165,6 @@ export function fetchClaudeCodeHourlyUsage(): HourlyUsage[] {
 }
 
 export function fetchClaudeCodeTopSessions(): TopSession[] {
-  ensurePricingLoaded();
-
   if (!fs.existsSync(CLAUDE_PROJECTS_DIR)) return [];
   const files = findJsonlFiles(CLAUDE_PROJECTS_DIR);
   interface SessionAcc {
@@ -230,8 +226,28 @@ export function fetchClaudeCodeTopSessions(): TopSession[] {
     }
   }
 
-  // Find session titles from sessions-index.json files
+  // Find session titles from multiple sources:
+  // 1. ~/.claude/sessions/*.json  – has the user-renamed "name" field
+  // 2. sessions-index.json        – fallback to firstPrompt
   const titles = new Map<string, string>();
+
+  // 1. Read renamed session names from ~/.claude/sessions/*.json
+  const SESSIONS_DIR = path.join(os.homedir(), ".claude", "sessions");
+  if (fs.existsSync(SESSIONS_DIR)) {
+    for (const file of fs.readdirSync(SESSIONS_DIR)) {
+      if (!file.endsWith(".json")) continue;
+      try {
+        const meta = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), "utf-8"));
+        if (meta.sessionId && meta.name) {
+          titles.set(meta.sessionId, meta.name);
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  // 2. Fallback: read firstPrompt from sessions-index.json files
   const indexDirs = fs.readdirSync(CLAUDE_PROJECTS_DIR, { withFileTypes: true });
   for (const dir of indexDirs) {
     if (!dir.isDirectory()) continue;
@@ -240,7 +256,7 @@ export function fetchClaudeCodeTopSessions(): TopSession[] {
     try {
       const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
       for (const entry of index.entries || []) {
-        if (entry.sessionId && entry.firstPrompt) {
+        if (entry.sessionId && entry.firstPrompt && !titles.has(entry.sessionId)) {
           titles.set(entry.sessionId, entry.firstPrompt);
         }
       }

@@ -46,6 +46,7 @@ export interface ModelStats {
   reasoning_tokens: number;
   cost: number;
   cost_pct: number;
+  hasPricing: boolean;
 }
 
 export interface DailySession {
