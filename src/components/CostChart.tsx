@@ -34,7 +34,9 @@ function buildChartData(dailyUsage: DailyUsage[]) {
       allModels.add(model);
     }
   }
-  const models = Array.from(allModels);
+  const models = Array.from(allModels).filter((model) =>
+    dailyUsage.some((day) => (day.models[model]?.cost ?? 0) > 0)
+  );
 
   const data = dailyUsage.map((day) => {
     const row: Record<string, string | number> = { date: day.date };
@@ -91,7 +93,7 @@ export default function CostChart({ dailyUsage }: CostChartProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          height: "220px",
+          height: "300px",
           color: "var(--text-muted)",
           fontSize: "0.9rem",
         }}
@@ -104,7 +106,7 @@ export default function CostChart({ dailyUsage }: CostChartProps) {
   const { data, models } = buildChartData(dailyUsage);
 
   return (
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <defs>
             {models.map((model, i) => (
@@ -117,6 +119,7 @@ export default function CostChart({ dailyUsage }: CostChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis
+            domain={["auto", "auto"]}
             tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}

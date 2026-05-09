@@ -63,7 +63,7 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          height: "220px",
+          height: "300px",
           color: "var(--text-muted)",
           fontSize: "0.9rem",
         }}
@@ -81,8 +81,19 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
     "Reasoning": Object.values(day.models).reduce((s, m) => s + m.reasoning_tokens, 0),
   }));
 
+  const TOKEN_LINES = [
+    { key: "Input Tokens", stroke: "#3b82f6", strokeDasharray: undefined },
+    { key: "Output Tokens", stroke: "#22c55e", strokeDasharray: "5 3" },
+    { key: "Cache Read", stroke: "#f97316", strokeDasharray: undefined },
+    { key: "Reasoning", stroke: "#ec4899", strokeDasharray: "3 3" },
+  ] as const;
+
+  const activeLines = TOKEN_LINES.filter(({ key }) =>
+    data.some((row) => row[key] > 0)
+  );
+
   return (
-    <ResponsiveContainer width="100%" height={220}>
+    <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
@@ -92,6 +103,7 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
           tickLine={false}
         />
         <YAxis
+          domain={["auto", "auto"]}
           tick={{ fill: "var(--text-muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
@@ -100,10 +112,9 @@ export default function TokenChart({ dailyUsage }: TokenChartProps) {
         />
         <Tooltip content={<CustomTooltip />} />
         <Legend wrapperStyle={{ fontSize: "0.75rem", color: "var(--text-muted)" }} />
-        <Line type="monotone" dataKey="Input Tokens" stroke="#3b82f6" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="Output Tokens" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 3" dot={false} />
-        <Line type="monotone" dataKey="Cache Read" stroke="#f97316" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="Reasoning" stroke="#ec4899" strokeWidth={2} strokeDasharray="3 3" dot={false} />
+        {activeLines.map(({ key, stroke, strokeDasharray }) => (
+          <Line key={key} type="monotone" dataKey={key} stroke={stroke} strokeWidth={2} strokeDasharray={strokeDasharray} dot={false} />
+        ))}
       </LineChart>
     </ResponsiveContainer>
   );
