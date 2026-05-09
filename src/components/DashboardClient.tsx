@@ -258,6 +258,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
 
             {/* Stat Cards */}
             <div
+              className="responsive-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
@@ -374,6 +375,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                     Daily cost and token breakdown for {SOURCE_LABELS[source]} models
                   </p>
                   <div
+                    className="responsive-grid"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",

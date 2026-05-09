@@ -32,3 +32,9 @@ a {
 a:hover {
   color: var(--accent-hover);
 }
+
+@media (max-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
