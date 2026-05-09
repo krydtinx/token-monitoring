@@ -5,6 +5,7 @@ import StatCard from "@/components/StatCard";
 import ModelTable from "@/components/ModelTable";
 import CostChart from "@/components/CostChart";
 import TokenChart from "@/components/TokenChart";
+import ModelTokenChart from "@/components/ModelTokenChart";
 import SessionChart from "@/components/SessionChart";
 import ToolChart from "@/components/ToolChart";
 import HourlyChart from "@/components/HourlyChart";
@@ -378,7 +379,7 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                     className="responsive-grid"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                      gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
                       gap: "1rem",
                     }}
                   >
@@ -431,6 +432,31 @@ export default function DashboardClient({ initialData }: { initialData: Dashboar
                         Daily token usage (input, output, cache, reasoning)
                       </p>
                       <TokenChart dailyUsage={filtered} />
+                    </div>
+                    <div
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "0.75rem",
+                        padding: "1rem",
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          marginBottom: "0.25rem",
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        Tokens by Model
+                      </h3>
+                      <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: "0.75rem" }}>
+                        Total tokens per model (input, output, cache read)
+                      </p>
+                      <ModelTokenChart dailyUsage={filtered} />
                     </div>
                   </div>
                 </div>
